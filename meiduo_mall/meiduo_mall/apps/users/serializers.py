@@ -1,10 +1,14 @@
 import re
 
+from django.conf import settings
 from django_redis import get_redis_connection
+from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 from rest_framework import serializers
 from rest_framework_jwt.settings import api_settings
 
+from . import contains
 from .models import User
+from celery_tasks.email.tasks import sen_email
 
 
 class CreateUserSerializer(serializers.ModelSerializer):
@@ -93,7 +97,45 @@ class CreateUserSerializer(serializers.ModelSerializer):
         return user
 
 
+class UserDetailSerializer(serializers.ModelSerializer):
+    """
+    用户详情信息序列化器,用户序列化返回
+    """
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'mobile', 'email', 'email_active']
 
+
+class EmailUpdateSerializer(serializers.ModelSerializer):
+    """
+    用户详情页面保存邮箱序列化器
+    """
+    class Meta:
+        model = User
+        fields = ['id', 'email']
+        extra_kwargs = {
+            'email': {
+                'required': True   # 在反序列化时必须输入，前端传入的参数
+            }
+        }
+
+    def update(self, instance, validated_data):
+        email = validated_data['email']
+
+        # 将email更新到数据库中
+        instance.email = email
+        instance.save()
+
+        # 生成激活url，使用token作为链接的参数
+        serializer = Serializer(settings.SECRET_KEY, contains.JWT_SERIALIZER_TOKEN_TIMES)
+        token = serializer.dumps({'user_id': instance.id, 'email': email})
+        token = token.decode()
+        verify_url = 'http://127.0.0.1:5500/success_verify_email.html?token=' + token
+
+        # 向该邮箱发送激活邮件的url,使用celery发送
+        sen_email.delay(email, verify_url)
+
+        return instance
 
 
 
