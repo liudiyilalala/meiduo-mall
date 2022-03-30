@@ -20,6 +20,7 @@ class UserRegisterView(CreateAPIView):
     serializer_class = serializers.CreateUserSerializer
 
 
+# 判断账号是否存在
 class UsernameCountView(APIView):
     def get(self, request, username):
         # 从数据库查询用户输入的用户名个数
