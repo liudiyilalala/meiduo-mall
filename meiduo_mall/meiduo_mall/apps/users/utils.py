@@ -17,14 +17,14 @@ def jwt_response_payload_handler(token, user=None, request=None):
 
 
 # 自定义用户输入的username是用户名或手机号
-def get_user_by_account(account):
+def get_user_by_account(username):
     try:
-        if re.match('^1[3-9]\d{9}$', account):
+        if re.match('^1[3-9]\d{9}$', username):
             # 账号是手机号，通过手机号查找
-            user = User.objects.get(mobile=account)
+            user = User.objects.get(mobile=username)
         else:
             # 账号是用户名登陆
-            user = User.objects.get(username=account)
+            user = User.objects.get(username=username)
     except Exception as e:
         return None
     else:
@@ -35,7 +35,7 @@ def get_user_by_account(account):
 class UsernameMobileAuthBackend(ModelBackend):
     def authenticate(self, request, username=None, password=None, **kwargs):
 
-        # 获取参数
+        # 获取username是手机号还是用户名
         user = get_user_by_account(username)
         # 校验参数
         if user and user.check_password(password):

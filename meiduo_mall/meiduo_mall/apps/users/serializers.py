@@ -12,7 +12,7 @@ class CreateUserSerializer(serializers.ModelSerializer):
     password2 = serializers.CharField(label='确认密码', write_only=True)  # write_only 反序列化时校验
     sms_code = serializers.CharField(label='短信验证码', write_only=True)
     allow = serializers.CharField(label='同意协议', write_only=True)
-    token = serializers.CharField(label='jwt token', read_only=True)
+    token = serializers.CharField(label='jwt token', read_only=True)  # read_only 序列化时校验，即返回前端的数据
 
     class Meta:
         model = User
