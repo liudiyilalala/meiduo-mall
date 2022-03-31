@@ -1,3 +1,4 @@
+from rest_framework.routers import DefaultRouter
 from rest_framework_jwt.views import obtain_jwt_token
 
 from . import views
@@ -12,3 +13,14 @@ urlpatterns = [
     re_path(r'^email/$', views.EmailView.as_view()),
     re_path(r'^emails/verification/$', views.EmailVerifyView.as_view()),
 ]
+
+router = DefaultRouter()
+router.register(r'addresses', views.AddressViewSet, basename='addresses')
+
+urlpatterns += router.urls
+# POST /addresses/ 新建  -> create
+# PUT /addresses/<pk>/ 修改  -> update
+# GET /addresses/  查询  -> list
+# DELETE /addresses/<pk>/  删除 -> destroy
+# PUT /addresses/<pk>/status/ 设置默认 -> status
+# PUT /addresses/<pk>/title/  设置标题 -> title

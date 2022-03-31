@@ -4,7 +4,7 @@ from urllib.parse import urlencode, parse_qs
 from urllib.request import urlopen
 
 from django.conf import settings
-from itsdangerous import TimedSerializer, BadData
+from itsdangerous import TimedJSONWebSignatureSerializer, BadData
 
 # 创建qq辅助工具类
 from oauth import contains
@@ -85,7 +85,7 @@ class OauthQQ(object):
     @staticmethod
     def generate_save_user_token(self, open_id):
         # 使用itsdangrous的TimedSerializer可以生成带有效期的token
-        serializer = TimedSerializer(settings.SECRET_KEY, contains.JWT_SERIALIZER_TOKEN_TIMES)
+        serializer = TimedJSONWebSignatureSerializer(settings.SECRET_KEY, contains.JWT_SERIALIZER_TOKEN_TIMES)
         token = serializer.dumps({'open_id': open_id})
         token = token.decode()
         return token
@@ -93,7 +93,7 @@ class OauthQQ(object):
     # 校验生成的token是否正确
     @staticmethod
     def check_user_token(self, access_token):
-        serializer = TimedSerializer(settings.SECRET_KEY, contains.JWT_SERIALIZER_TOKEN_TIMES)
+        serializer = TimedJSONWebSignatureSerializer(settings.SECRET_KEY, contains.JWT_SERIALIZER_TOKEN_TIMES)
         try:
             data = serializer.loads(access_token)
         except BadData:
