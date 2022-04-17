@@ -2,6 +2,7 @@ from django.shortcuts import render
 
 # Create your views here.
 # 判断账号是否存在
+from django_redis import get_redis_connection
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.generics import CreateAPIView, UpdateAPIView
@@ -9,11 +10,15 @@ from rest_framework.mixins import CreateModelMixin, UpdateModelMixin
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet
+from rest_framework_jwt.views import ObtainJSONWebToken
 
+from carts.utils import merge_cart_cookie_to_redis
+from goods.models import SKU
+from goods.serializers import SKUSerializer
 from users.models import User
 from . import serializers, contains
 from .serializers import CreateUserSerializer, UserDetailSerializer, EmailUpdateSerializer, \
-    AddressTitleSerializer, UserAddressSerializer
+    AddressTitleSerializer, UserAddressSerializer, AddUserBrowserHistorySerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.generics import RetrieveAPIView
 
@@ -158,7 +163,7 @@ class AddressViewSet(CreateModelMixin, UpdateModelMixin, GenericViewSet):
         # 获取删除的对象
         addresses = self.get_object()
         # 进行逻辑删除
-        addresses.is_delete = True
+        addresses.is_deleted = True
         addresses.save()
 
         # 删除成功返回204
@@ -186,3 +191,55 @@ class AddressViewSet(CreateModelMixin, UpdateModelMixin, GenericViewSet):
         serializer.save()
         # 把保存后的数据返回
         return Response(serializer.data)
+
+
+"""
+虽然浏览记录界面上要展示商品的一些SKU信息，但是我们在存储时没有必要存很多SKU信息。
+我们选择存储SKU信息的唯一编号（sku_id）来表示该件商品的浏览记录。
+存储数据：sku_id
+存储位置说明:
+用户浏览记录是临时数据，且经常变化，数据量不大，所以我们选择内存型数据库进行存储。
+存储位置：Redis数据库 3号库 list类型存储
+"""
+
+
+class UserBrowserHistoryView(CreateAPIView):
+    serializer_class = AddUserBrowserHistorySerializer
+    permission_classes = [IsAuthenticated]
+
+    # 获取用户的浏览记录
+    def get(self, request):
+        # 获取当前用户
+        user = request.user
+        # 建立redis链接
+        redis_conn = get_redis_connection('history')
+        # 从redis中获取sku_id
+        history = redis_conn.lrange("history_%s" % user.id, 0, 5)
+        # 数据库查询sku_id对应的商品信息
+        skus = []
+        for sku_id in history:
+            sku = SKU.objects.get(id=sku_id)
+            skus.append(sku)
+
+        # 将获取的商品信息序列化返回
+        sku = SKUSerializer(skus, many=True)
+        return Response(sku.data)
+
+
+# 重写用户认证系统，用于实现用户登录时合并购物车
+class UserAuthorizeView(ObtainJSONWebToken):
+    """
+    用户认证
+    """
+    def post(self, request, *args, **kwargs):
+        # 调用父类的方法，获取drf jwt扩展默认的认证用户处理结果
+        response = super().post(request, *args, **kwargs)
+
+        # 仿照drf jwt扩展对于用户登录的认证方式，判断用户是否认证登录成功
+        # 如果用户登录认证成功，则合并购物车
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.validated_data.get('user')
+            response = merge_cart_cookie_to_redis(request, user, response)
+
+        return response

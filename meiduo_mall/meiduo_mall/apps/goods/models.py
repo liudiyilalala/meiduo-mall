@@ -1,3 +1,5 @@
+from ckeditor.fields import RichTextField
+from ckeditor_uploader.fields import RichTextUploadingField
 from django.db import models
 
 # Create your models here.
@@ -66,6 +68,9 @@ class Goods(BaseModel):
     category3 = models.ForeignKey(GoodsCategory, on_delete=models.PROTECT, related_name='cat3_goods', verbose_name='三级类别')
     sales = models.IntegerField(default=0, verbose_name='销量')
     comments = models.IntegerField(default=0, verbose_name='评价数')
+    desc_detail = RichTextUploadingField(default='', verbose_name='详细介绍')
+    desc_pack = RichTextField(default='', verbose_name='包装信息')
+    desc_service = RichTextUploadingField(default='', verbose_name='售后服务')
 
     class Meta:
         db_table = 'tb_goods'
@@ -167,40 +172,5 @@ class SKUSpecification(BaseModel):
         return '%s: %s - %s' % (self.sku, self.spec.name, self.option.value)
 
 
-# 创建广告内容应用contents，广告数据模型类
-class ContentCategory(BaseModel):
-    """
-    广告内容类别
-    """
-    name = models.CharField(max_length=50, verbose_name='名称')
-    key = models.CharField(max_length=50, verbose_name='类别键名')
 
-    class Meta:
-        db_table = 'tb_content_category'
-        verbose_name = '广告内容类别'
-        verbose_name_plural = verbose_name
-
-    def __str__(self):
-        return self.name
-
-
-class Content(BaseModel):
-    """
-    广告内容
-    """
-    category = models.ForeignKey(ContentCategory, on_delete=models.PROTECT, verbose_name='类别')
-    title = models.CharField(max_length=100, verbose_name='标题')
-    url = models.CharField(max_length=300, verbose_name='内容链接')
-    image = models.ImageField(null=True, blank=True, verbose_name='图片')
-    text = models.TextField(null=True, blank=True, verbose_name='内容')
-    sequence = models.IntegerField(verbose_name='排序')
-    status = models.BooleanField(default=True, verbose_name='是否展示')
-
-    class Meta:
-        db_table = 'tb_content'
-        verbose_name = '广告内容'
-        verbose_name_plural = verbose_name
-
-    def __str__(self):
-        return self.category.name + ': ' + self.title
 

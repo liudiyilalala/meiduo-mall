@@ -6,6 +6,7 @@ from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 from rest_framework import serializers
 from rest_framework_jwt.settings import api_settings
 
+from goods.models import SKU
 from . import contains
 from .models import User, Address
 from celery_tasks.email.tasks import sen_email
@@ -171,5 +172,40 @@ class AddressTitleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
         fields = ('title', )
+
+
+class AddUserBrowserHistorySerializer(serializers.Serializer):
+    """
+     保存用户浏览历史记录
+    """
+    sku_id = serializers.IntegerField(label="商品SKU编号", min_value=1)
+
+    # 进行sku_id字段验证
+    def validate_sku_id(self, attrs):
+        try:
+            SKU.objects.get(id=attrs)
+        except Exception as e:
+            raise serializers.ValidationError("该商品不存在")
+        else:
+            return attrs
+
+    # 保存sku_id到redis中
+    def create(self, validated_data):
+        sku_id = validated_data['sku_id']
+        # 获取用户对象
+        user = self.context['request'].user
+        # 建立redis链接,使用管道
+        redis_conn = get_redis_connection('history')
+        pl = redis_conn.pipeline()
+        # 去重，将redis中之前保存的sku_id对应的该条历史记录删掉
+        pl.lrem("history_%s" % user.id, 0, sku_id)
+        # 将当前浏览的记录保存到redis的列表第一位  history_user_id : [now_sku_id, 1, 2, 3]
+        pl.lpush("history_%s" % user.id, sku_id)
+        # 截断 只保存前五条记录
+        pl.ltrim("history_%s" % user.id, 0, 4)
+
+        pl.execute()
+        return validated_data
+
 
 

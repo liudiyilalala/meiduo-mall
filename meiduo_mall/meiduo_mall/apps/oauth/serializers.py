@@ -95,5 +95,7 @@ class OauthQQAPIViewSerializer(serializers.ModelSerializer):
 
         user.token = token
 
-        # self.context['view'].user = user
+        # 向视图对象中补充user对象属性，以便在视图中使用user
+        self.context['view'].user = user
+
         return user
